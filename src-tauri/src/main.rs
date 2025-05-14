@@ -1,7 +1,9 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{fmt::format, path::Path, process::Command};
+use std::{ fs, path::Path, process::Command};
+
+use tauri::{api::path::{app_data_dir, resource_dir}, Manager};
 
 // Learn more about Tauri commands at https://v1.tauri.app/v1/guides/features/command
 #[tauri::command]
@@ -45,9 +47,23 @@ fn launch_app_v2(path: &str) -> String {
     }
 }
 
+// 加载data文件夹中的data.json，读取为字符串
+#[tauri::command]
+fn load_app_list(handle:tauri::AppHandle)->String {
+    let resource_path = handle.path_resolver().resolve_resource("data/app_list.json").expect("Failed to resolve resource path");
+    if resource_path.exists() {
+        return match fs::read_to_string(resource_path) {
+            Ok(content) => content,
+            Err(e) => format!("Failed to read file: {}", e),
+        }
+    }else{
+        return format!("File not found: {}", resource_path.display());
+    }    
+}
+
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![greet,launch_app,launch_app_v2])
+        .invoke_handler(tauri::generate_handler![greet,launch_app,launch_app_v2,load_app_list])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
