@@ -26,10 +26,15 @@ function defaultTabList(): Array<TabItem> {
     return tabList;
 }
 
-export const tabListStore = defineStore("appList", {
+export const useTabListStore = defineStore("appList", {
     state: ()=>({
         tabList: defaultTabList(),
         currentTab: "default",
     }),
+    actions: {
+        setTabList(tabList:Array<TabItem>){
+            this.tabList = tabList;
+        }
+    }
 
 })
