@@ -52,7 +52,8 @@ fn launch_app(path: &str) -> ResultWrapper<String> {
     #[cfg(not(target_os = "windows"))]
     {
         // Err("当前仅支持 Windows 系统".to_string())
-        format("当前仅支持 Windows 系统")
+        // format("当前仅支持 Windows 系统")
+        ResultWrapper { status: false, data: "".to_string(), info: "当前仅支持 Windows 系统".to_string() }
     }
 }
 

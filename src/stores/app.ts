@@ -26,7 +26,7 @@ function defaultTabList(): Array<TabItem> {
     return tabList;
 }
 
-export const useTabListStore = defineStore("appList", {
+const useTabListStore = defineStore("appList", {
     state: ()=>({
         tabList: defaultTabList(),
         currentTab: "default",
@@ -38,3 +38,6 @@ export const useTabListStore = defineStore("appList", {
     }
 
 })
+
+export { useTabListStore }
+export type {TabItem, ChildItem}
