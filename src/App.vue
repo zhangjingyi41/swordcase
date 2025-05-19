@@ -5,6 +5,7 @@ import { Plus } from "@element-plus/icons-vue";
 import { useTabListStore, TabItem } from "@/stores/app"
 import { Action, ElMessageBox, TabsPaneContext } from "element-plus"
 import { appWindow } from "@tauri-apps/api/window";
+import { path } from "@tauri-apps/api";
 
 
 const launchAppMsg = ref("");
@@ -40,12 +41,30 @@ async function loadAppList() {
     activeTab.value = app_list[0].name
     tabListStore.setTabList(app_list)
 }
+
+const app_icon_ref = ref("")
+async function getAppIcon() {
+    let icon_result:TauriResult = await invoke("get_app_icon", {path:"D:\\Develop\\IDE\\cursor\\Cursor.exe"})
+    console.log(icon_result)
+    if(icon_result.status){
+        app_icon_ref.value = icon_result.data
+    }else{
+        ElMessageBox.alert(`获取应用图标时出现问题：${icon_result.info}`, "提示", {
+            confirmButtonText: "退出程序",
+            type: "error",
+            callback: () => {
+                appWindow.close()
+            }
+        })
+    }
+}
+
 function handleChangeTab(tab: TabsPaneContext, event: Event) {
     console.log(tab)
 }
 onMounted(async () => {
     await loadAppList()
-
+    await getAppIcon()
 });
 
 </script>
@@ -54,18 +73,18 @@ onMounted(async () => {
     <div class="box">
         <el-container class="box">
             <el-header>
-                <el-button type="primary" :icon="Plus" v-on:click="launchApp" />
-                <p>{{ launchAppMsg }}</p>
-                <p>{{ data }}</p>
+                <img :src="app_icon_ref" alt="" >
             </el-header>
             <!-- 走马灯、tab标签页都不行，继续按照翻页的思路走，逻辑是分页的逻辑，样式按照走马灯 -->
             <el-main class="main">
-                <div v-for="(tab, index) in tabListStore.tabList" >
-                    
-
+                <div class="card-container">
+                    <el-card 
+                        v-for="(item, item_index) in tabListStore.tabList[0].childList" 
+                        :key="item_index"
+                        class="square-card">
+                        <p>{{ item.name }}</p>
+                    </el-card>
                 </div>
-                
-                
             </el-main>
         </el-container>
     </div>
@@ -79,42 +98,20 @@ onMounted(async () => {
 
 .main {
     border: 1px solid #ccc;
-
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 10px;
     width: 100%;
-    margin: 0 auto;
+    padding: 10px;
 }
 
-.grid-item {
-    background-color: #3498db;
-    color: white;
+.card-container {
     display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 1.5em;
-    border-radius: 5px;
-    /* 确保所有盒子都是正方形 */
-    aspect-ratio: 1 / 1;
+    flex-wrap: wrap;
+    gap: 15px;
+    justify-content: flex-start;
 }
 
-/* 小盒子 (1x1) */
-.size-1 {
-    grid-column: span 1;
-    grid-row: span 1;
+.square-card {
+    width: 100px;
+    height: 100px;
+    margin-bottom: 10px;
 }
-
-/* 中等盒子 (2x2) */
-.size-2 {
-    grid-column: span 2;
-    grid-row: span 2;
-}
-
-/* 大盒子 (4x4) */
-.size-3 {
-    grid-column: span 4;
-    grid-row: span 4;
-}
-
 </style>

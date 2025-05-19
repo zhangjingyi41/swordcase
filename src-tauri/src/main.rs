@@ -16,6 +16,9 @@ use windows::{
     },
 };
 
+use base64::{Engine, engine::general_purpose};
+use image::{ImageBuffer, Rgba};
+
 #[derive(Serialize, Deserialize, Debug)]
 struct ResultWrapper<T> {
     pub status:bool,
@@ -124,14 +127,17 @@ fn extract_icon(path:&str) ->Result<String, String> {
             .encode_wide()
             .chain(std::iter::once(0))
             .collect();
+        
         // 获取文件图标句柄
         let mut large_icon = HICON(0);
         let mut small_icon = HICON(0);
+        
+        // 修复这里: 用 Some() 包装指针
         let result = ExtractIconExW(
             PCWSTR::from_raw(wide_path.as_ptr()),
             0, // 第一个图标
-            &mut large_icon,
-            &mut small_icon,
+            Some(&mut large_icon as *mut _),
+            Some(&mut small_icon as *mut _),
             1, // 我们只提取一个图标
         );
         
@@ -176,44 +182,51 @@ fn extract_icon(path:&str) ->Result<String, String> {
         }
         
         // 获取图标尺寸
-        if !GetDIBits(
+        let size_result = GetDIBits(
             hdc,
             icon_info.hbmColor,
             0,
             0,
-            ptr::null_mut(),
+            None,  // 这里使用 None 因为我们只是查询尺寸
             std::mem::transmute(&mut bitmap_info),
             DIB_RGB_COLORS,
-        ).as_bool() {
-            ReleaseDC(HWND(0), hdc);
-            DeleteObject(icon_info.hbmColor);
-            DeleteObject(icon_info.hbmMask);
-            DestroyIcon(icon_handle);
-            return Err("无法获取图标尺寸".to_string());
+        );
+        println!("size_result: {}", size_result);
+        println!("bitmap_info: width={}, height={}", bitmap_info.biWidth, bitmap_info.biHeight);
+
+        if size_result == 0 || bitmap_info.biWidth == 0 || bitmap_info.biHeight == 0 {
+            // 如果返回值为0或尺寸为0，尝试使用固定尺寸
+            println!("使用默认图标尺寸");
+            bitmap_info.biWidth = 32;  // 使用常见的图标大小
+            bitmap_info.biHeight = 32;
+            // 也可以尝试使用 GetIconInfo 检索到的位图的尺寸
+            // 这里也可以考虑获取系统图标大小：SM_CXICON 和 SM_CYICON
         }
-        
+
         let width = bitmap_info.biWidth;
-        let height = bitmap_info.biHeight.abs();
+        let height = bitmap_info.biHeight.abs(); // 使用绝对值，因为 biHeight 可能为负
         
         // 分配内存用于存储图标数据
         let mut buffer = vec![0u8; (width * height * 4) as usize];
         
         // 获取图标数据
-        if !GetDIBits(
+        let ico_result = GetDIBits(
             hdc,
             icon_info.hbmColor,
             0,
             height as u32,
-            buffer.as_mut_ptr() as *mut _,
+            Some(buffer.as_mut_ptr() as *mut _),  // 将参数包装在 Some 中
             std::mem::transmute(&mut bitmap_info),
             DIB_RGB_COLORS,
-        ).as_bool() {
+        );
+        if ico_result == 0 {  // 检查返回值是否为0
             ReleaseDC(HWND(0), hdc);
             DeleteObject(icon_info.hbmColor);
             DeleteObject(icon_info.hbmMask);
             DestroyIcon(icon_handle);
             return Err("无法获取图标数据".to_string());
         }
+
         
         // 清理资源
         ReleaseDC(HWND(0), hdc);
@@ -232,27 +245,41 @@ fn extract_icon(path:&str) ->Result<String, String> {
 }
 
 fn convert_rgba_to_png(rgba_data: &[u8], width: u32, height: u32) -> Result<Vec<u8>, String> {
-    // 使用image crate将RGBA数据转换为PNG
-    // 这里需要添加image crate到您的依赖中
-    // 简化版本，实际使用请添加proper error handling
+    // 创建一个新的缓冲区用于翻转的图像数据
+    let mut fixed_data = Vec::with_capacity(rgba_data.len());
+    
+    // 翻转图像垂直方向 (上下颠倒)
+    for y in (0..height).rev() {  // 反向遍历行
+        for x in 0..width {
+            let pos = ((y * width + x) * 4) as usize;
+            if pos + 3 < rgba_data.len() {
+                // 同时交换 BGR 与 RGB
+                fixed_data.push(rgba_data[pos + 2]);  // B -> R
+                fixed_data.push(rgba_data[pos + 1]);  // G -> G
+                fixed_data.push(rgba_data[pos]);     // R -> B
+                fixed_data.push(rgba_data[pos + 3]);  // A -> A
+            }
+        }
+    }
+    
+    // 使用修复后的数据创建图像
+    let img = ImageBuffer::<Rgba<u8>, _>::from_raw(width, height, fixed_data)
+        .ok_or("无法创建图像缓冲区")?;
+    
+    // 转换为 DynamicImage
+    let dynamic_img = image::DynamicImage::ImageRgba8(img);
+    
+    // 将图像编码为PNG
     let mut png_data = Vec::new();
-    
-    // 这里应该使用image crate处理图像数据
-    // 示例伪代码:
-    // let img = ImageBuffer::from_raw(width, height, rgba_data.to_vec())
-    //    .ok_or("无法创建图像缓冲区")?;
-    // img.write_to(&mut png_data, image::ImageFormat::Png)
-    //    .map_err(|e| format!("无法编码PNG: {}", e))?;
-    
-    // 这里是简化实现，实际应用中替换为上面的代码
-    png_data.extend_from_slice(rgba_data);
+    dynamic_img.write_to(&mut std::io::Cursor::new(&mut png_data), image::ImageFormat::Png)
+        .map_err(|e| format!("无法编码PNG: {}", e))?;
     
     Ok(png_data)
 }
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![greet,launch_app,load_app_list])
+        .invoke_handler(tauri::generate_handler![greet,launch_app,load_app_list,get_app_icon])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
