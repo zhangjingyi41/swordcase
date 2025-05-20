@@ -11,7 +11,7 @@ edition = "2021"
 tauri-build = { version = "1", features = [] }
 
 [dependencies]
-tauri = { version = "1", features = [ "window-minimize", "window-maximize", "window-close", "shell-open"] }
+tauri = { version = "1", features = [ "window-center", "window-close", "shell-open"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 windows = { version = "0.48", features = ["Win32_UI_WindowsAndMessaging", "Win32_UI_Shell", "Win32_Graphics_Gdi", "Win32_Foundation"] }

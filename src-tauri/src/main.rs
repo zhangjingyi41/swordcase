@@ -3,7 +3,7 @@
 
 use std::{ ffi::OsStr, fs, os::windows::ffi::OsStrExt, path::Path, process::Command};
 
-use tauri::{api::path::{app_data_dir, resource_dir}, Manager};
+use tauri::{api::path::{app_data_dir, resource_dir}, Manager, CustomMenuItem,Menu,MenuItem,Submenu};
 use serde::{Serialize, Deserialize};
 
 use windows::{

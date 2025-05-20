@@ -19,12 +19,12 @@
       },
       "window": {
         "all": false,
-        "center": false,
+        "center": true,
         "close": true,
         "create": false,
         "hide": false,
-        "maximize": true,
-        "minimize": true,
+        "maximize": false,
+        "minimize": false,
         "print": false,
         "requestUserAttention": false,
         "setAlwaysOnTop": false,
@@ -57,8 +57,11 @@
     "windows": [
       {
         "title": "swordcase",
-        "width": 800,
-        "height": 600
+        "width": 960,
+        "height": 600,
+        "resizable": false,
+        "decorations": true,
+        "visible": true
       }
     ],
     "security": {

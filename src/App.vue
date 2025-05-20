@@ -1,25 +1,27 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, reactive } from "vue";
 import { invoke } from "@tauri-apps/api/tauri";
 import { Plus } from "@element-plus/icons-vue";
 import { useTabListStore, TabItem } from "@/stores/app"
-import { Action, ElMessageBox, TabsPaneContext } from "element-plus"
+import { Action, DropdownInstance, ElMessageBox, TabsPaneContext } from "element-plus"
 import { appWindow } from "@tauri-apps/api/window";
-import { path } from "@tauri-apps/api";
+import { path, window } from "@tauri-apps/api";
 
 
 const launchAppMsg = ref("");
 const data = ref("")
 const tabListStore = useTabListStore()
 const activeTab = ref('')
+const dropdownMenu = ref<DropdownInstance>()
 
+// 添加位置状态
+const menuPosition = reactive({
+    x: 0,
+    y: 0
+})
 
 async function launchApp() {
-    // Learn more about Tauri commands at https://v1.tauri.app/v1/guides/features/command
-    // launchAppMsg.value = await invoke("launch_app", { path: "D:\\3_14@17837140378_1811252a-a91d-4b72-bc71-a801a156702a.wav" });
-    // launchAppMsg.value = await invoke("launch_app", { path: "C:\\Users\\Administrator\\Desktop\\阿里云盘.lnk" });
     launchAppMsg.value = await invoke("launch_app", { path: "D:\\3_14@17837140378_1811252a-a91d-4b72-bc71-a801a156702a.wav" });
-    // data.value = await invoke("load_app_list")
 }
 
 // 加载应用列表
@@ -44,8 +46,9 @@ async function loadAppList() {
 
 const app_icon_ref = ref("")
 async function getAppIcon() {
-    let icon_result:TauriResult = await invoke("get_app_icon", {path:"D:\\Develop\\IDE\\cursor\\Cursor.exe"})
+    let icon_result:TauriResult = await invoke("get_app_icon", {path:"C:\\Users\\Administrator\\Desktop\\Whale.exe"})
     console.log(icon_result)
+    
     if(icon_result.status){
         app_icon_ref.value = icon_result.data
     }else{
@@ -62,6 +65,26 @@ async function getAppIcon() {
 function handleChangeTab(tab: TabsPaneContext, event: Event) {
     console.log(tab)
 }
+
+function handleClickMenu(event: MouseEvent) {
+    event.preventDefault()
+    event.stopPropagation()
+    
+    // 设置下拉菜单位置
+    menuPosition.x = event.clientX
+    menuPosition.y = event.clientY
+    
+    // 如果需要调整位置以避免菜单超出屏幕，可以添加
+    // 如果接近右边界，向左偏移
+    // if (menuPosition.x + 200 > window.innerWidth) {
+    //   menuPosition.x = window.innerWidth - 200
+    // }
+    
+    // 显示菜单
+    dropdownMenu.value?.handleOpen()
+    console.log(event)
+    console.log("右键菜单")
+}
 onMounted(async () => {
     await loadAppList()
     await getAppIcon()
@@ -71,22 +94,43 @@ onMounted(async () => {
 
 <template>
     <div class="box">
-        <el-container class="box">
+        <el-container class="box" @click.right="handleClickMenu">
             <el-header>
                 <img :src="app_icon_ref" alt="" >
+                <el-dropdown ref="dropdownMenu" trigger="contextmenu" 
+                            :style="{position: 'fixed', left: menuPosition.x + 'px', top: menuPosition.y + 'px'}">
+                    <span></span>
+                    <template #dropdown>
+                        <el-dropdown-menu>
+                            <el-dropdown-item>Action 1</el-dropdown-item>
+                            <el-dropdown-item>Action 2</el-dropdown-item>
+                            <el-dropdown-item>Action 3</el-dropdown-item>
+                            <el-dropdown-item disabled>Action 4</el-dropdown-item>
+                            <el-dropdown-item divided>Action 5</el-dropdown-item>
+                        </el-dropdown-menu>
+                    </template>
+                </el-dropdown>
             </el-header>
             <!-- 走马灯、tab标签页都不行，继续按照翻页的思路走，逻辑是分页的逻辑，样式按照走马灯 -->
             <el-main class="main">
                 <div class="card-container">
-                    <el-card 
+                    <!-- <el-card 
                         v-for="(item, item_index) in tabListStore.tabList[0].childList" 
                         :key="item_index"
                         class="square-card">
                         <p>{{ item.name }}</p>
-                    </el-card>
+                    </el-card> -->
+                    <div
+                        v-for="(item, item_index) in tabListStore.tabList[0].childList" 
+                        :key="item_index"
+                        class="square-card">
+                        <p v-if="item.type=='app'">{{ item.name }}</p>
+                        <p v-else>文件夹</p>
+                    </div>
                 </div>
             </el-main>
         </el-container>
+        
     </div>
 </template>
 
@@ -99,7 +143,7 @@ onMounted(async () => {
 .main {
     border: 1px solid #ccc;
     width: 100%;
-    padding: 10px;
+    padding: 0;
 }
 
 .card-container {
@@ -107,11 +151,14 @@ onMounted(async () => {
     flex-wrap: wrap;
     gap: 15px;
     justify-content: flex-start;
+    margin: 0 auto; /* 设置左右外边距为auto，实现水平居中 */
+    width: 905px;
 }
 
 .square-card {
     width: 100px;
     height: 100px;
     margin-bottom: 10px;
+    background-color: greenyellow;
 }
 </style>
