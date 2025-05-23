@@ -13,6 +13,7 @@ const data = ref("")
 const tabListStore = useTabListStore()
 const activeTab = ref('')
 const dropdownMenu = ref<DropdownInstance>()
+const dropdownItemList = ref(new Array<DropdownItem>())
 
 // 添加位置状态
 const menuPosition = reactive({
@@ -65,8 +66,39 @@ async function getAppIcon() {
 function handleChangeTab(tab: TabsPaneContext, event: Event) {
     console.log(tab)
 }
-
-function handleClickMenu(event: MouseEvent) {
+type DropdownItem = {
+    label: string
+    icon?: any
+    disabled: boolean
+    command: string
+}
+async function handleClickMenu(command: string | number | object) {
+    switch (command) {
+        case "open_app":
+            console.log("打开应用")
+            break
+        case "remove":
+            console.log("移除应用")
+            break
+        case "open_directory":
+            console.log("打开目录")
+            break
+        case "rename":
+            console.log("重命名")
+            break
+        case "add_app":
+            console.log("添加应用")
+            let app_list:TauriResult = await invoke("get_installed_apps")
+            console.log(app_list)
+            break
+        case "new_folder":
+            console.log("新建文件夹")
+            break
+        default:
+            break
+    }
+}
+function showClickMenu(event: MouseEvent, item_type: string = "default") {
     event.preventDefault()
     event.stopPropagation()
     
@@ -79,6 +111,28 @@ function handleClickMenu(event: MouseEvent) {
     // if (menuPosition.x + 200 > window.innerWidth) {
     //   menuPosition.x = window.innerWidth - 200
     // }
+    switch(item_type){
+        case "app":
+            dropdownItemList.value = [
+                { label: "打开", command: "open_app", disabled:false},
+                { label: "移除", command: "remove", disabled:false},
+            ]
+            break
+        case "directory":
+            dropdownItemList.value = [
+                { label: "打开", command: "open_directory",disabled:false},
+                { label: "移除", command: "remove",disabled:false},
+                { label: "重命名", command: "rename",disabled:false},
+                { label: "添加应用", command: "add_app",disabled:false},
+            ]
+            break
+        default:
+            dropdownItemList.value = [
+                { label: "新建文件夹", command: "new_folder",disabled:false},
+                { label: "添加应用", command: "add_app",disabled:false},
+            ]
+            break
+    }
     
     // 显示菜单
     dropdownMenu.value?.handleOpen()
@@ -94,19 +148,22 @@ onMounted(async () => {
 
 <template>
     <div class="box">
-        <el-container class="box" @click.right="handleClickMenu">
+        <el-container class="box" @click.right="showClickMenu">
             <el-header>
                 <img :src="app_icon_ref" alt="" >
-                <el-dropdown ref="dropdownMenu" trigger="contextmenu" 
+                <el-dropdown ref="dropdownMenu" trigger="contextmenu" placement="bottom-start" @command="handleClickMenu"
                             :style="{position: 'fixed', left: menuPosition.x + 'px', top: menuPosition.y + 'px'}">
                     <span></span>
                     <template #dropdown>
                         <el-dropdown-menu>
-                            <el-dropdown-item>Action 1</el-dropdown-item>
-                            <el-dropdown-item>Action 2</el-dropdown-item>
-                            <el-dropdown-item>Action 3</el-dropdown-item>
-                            <el-dropdown-item disabled>Action 4</el-dropdown-item>
-                            <el-dropdown-item divided>Action 5</el-dropdown-item>
+                            <!-- <el-dropdown-item>Action 1</el-dropdown-item>
+                            <el-dropdown-item>Action 2</el-dropdown-item> -->
+                            <el-dropdown-item 
+                                :command="dropdownItem.command"
+                                :disabled="dropdownItem.disabled"
+                                v-for="(dropdownItem, index) in dropdownItemList">
+                                {{ dropdownItem.label }}
+                            </el-dropdown-item>
                         </el-dropdown-menu>
                     </template>
                 </el-dropdown>
@@ -123,7 +180,8 @@ onMounted(async () => {
                     <div
                         v-for="(item, item_index) in tabListStore.tabList[0].childList" 
                         :key="item_index"
-                        class="square-card">
+                        class="square-card"
+                        @click.right="showClickMenu($event,item.type)">
                         <p v-if="item.type=='app'">{{ item.name }}</p>
                         <p v-else>文件夹</p>
                     </div>

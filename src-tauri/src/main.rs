@@ -18,12 +18,24 @@ use windows::{
 
 use base64::{Engine, engine::general_purpose};
 use image::{ImageBuffer, Rgba};
+use winreg::enums::*;
+use winreg::RegKey;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct ResultWrapper<T> {
     pub status:bool,
     pub data:T,
     pub info:String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct AppInfo {
+    name: String,
+    path: String,
+    publisher: Option<String>,
+    version: Option<String>,
+    install_location: Option<String>,
+    uninstall_string: Option<String>,
 }
 
 // Learn more about Tauri commands at https://v1.tauri.app/v1/guides/features/command
@@ -118,6 +130,97 @@ fn get_app_icon(path: &str) -> ResultWrapper<String> {
             data: "".to_string()
         }
     }
+}
+
+#[tauri::command]
+fn get_installed_apps() -> ResultWrapper<Vec<AppInfo>> {
+    match get_apps_from_registry() {
+        Ok(apps) => ResultWrapper {
+            status: true,
+            info: "ok".to_string(),
+            data: apps
+        },
+        Err(e) => ResultWrapper {
+            status: false,
+            info: format!("获取已安装应用列表失败: {}", e),
+            data: vec![]
+        }
+    }
+}
+
+fn get_apps_from_registry() -> Result<Vec<AppInfo>, String> {
+    let mut apps = Vec::new();
+    
+    // 64位应用程序
+    if let Ok(app_list) = get_apps_from_registry_key(r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall") {
+        apps.extend(app_list);
+    }
+    
+    // 32位应用程序在64位系统上
+    if let Ok(app_list) = get_apps_from_registry_key(r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall") {
+        apps.extend(app_list);
+    }
+    
+    Ok(apps)
+}
+
+fn get_apps_from_registry_key(key_path: &str) -> Result<Vec<AppInfo>, String> {
+    let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+    let uninstall_key = match hklm.open_subkey(key_path) {
+        Ok(key) => key,
+        Err(e) => return Err(format!("无法打开注册表键: {}", e)),
+    };
+    
+    let mut apps = Vec::new();
+    
+    for subkey_result in uninstall_key.enum_keys() {
+        let subkey_name = match subkey_result {
+            Ok(name) => name,
+            Err(_) => continue,
+        };
+        
+        let subkey = match uninstall_key.open_subkey(&subkey_name) {
+            Ok(key) => key,
+            Err(_) => continue,
+        };
+        
+        // 获取应用程序的名称
+        let display_name: String = match subkey.get_value("DisplayName") {
+            Ok(name) => name,
+            Err(_) => continue, // 如果没有名称，就跳过这个应用
+        };
+        
+        // 获取应用程序的路径
+        let mut path = String::new();
+        let install_location: Result<String, _> = subkey.get_value("InstallLocation");
+        let display_icon: Result<String, _> = subkey.get_value("DisplayIcon");
+        
+        if let Ok(location) = &display_icon {
+            path = location.clone();
+            // 移除图标索引（如果有）
+            if let Some(idx) = path.find(",") {
+                path = path[..idx].to_string();
+            }
+        }
+        
+        // 获取其他可能有用的信息
+        let publisher: Option<String> = subkey.get_value("Publisher").ok();
+        let version: Option<String> = subkey.get_value("DisplayVersion").ok();
+        let install_location: Option<String> = install_location.ok();
+        let uninstall_string: Option<String> = subkey.get_value("UninstallString").ok();
+        
+        // 将应用程序信息加入列表
+        apps.push(AppInfo {
+            name: display_name,
+            path,
+            publisher,
+            version,
+            install_location,
+            uninstall_string,
+        });
+    }
+    
+    Ok(apps)
 }
 
 fn extract_icon(path:&str) ->Result<String, String> {
@@ -279,7 +382,13 @@ fn convert_rgba_to_png(rgba_data: &[u8], width: u32, height: u32) -> Result<Vec<
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![greet,launch_app,load_app_list,get_app_icon])
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            launch_app,
+            load_app_list,
+            get_app_icon,
+            get_installed_apps
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
