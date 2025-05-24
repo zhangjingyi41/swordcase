@@ -1,43 +1,44 @@
 import {defineStore} from "pinia"
 
-type TabItem = {
-    name: string,
-    sq: number,
-    childList: Array<ChildItem>
-}
+// type TabItem = {
+//     name: string,
+//     sq: number,
+//     childList: Array<ChildItem>
+// }
 
-type ChildItem = {
+type AppItem = {
     name: string,
     sq: number,
     type: string, // 1:文件夹 2:文件
-    childList: Array<ChildItem>,
+    childList: Array<AppItem>,
     link: string,
     size: number,
 }
 
-function defaultTabList(): Array<TabItem> {
-    const tabList: Array<TabItem> = new Array<TabItem>();
-    const tabItem:TabItem = {
-        name: "default",
-        sq:0,
-        childList:[]
-    }
-    tabList.push(tabItem);
-    return tabList;
+function defaultAppList(): Array<AppItem> {
+    const appList: Array<AppItem> = new Array<AppItem>();
+    // const appItemInfo:AppItem = {
+    //     name: "default",
+    //     sq:0,
+    //     childList:[]
+    // }
+    // appList.push(appItemInfo);
+    return appList;
 }
 
-const useTabListStore = defineStore("appList", {
+const useAppListStore = defineStore("appList", {
     state: ()=>({
-        tabList: defaultTabList(),
+        appList: defaultAppList(),
         currentTab: "default",
     }),
     actions: {
-        setTabList(tabList:Array<TabItem>){
-            this.tabList = tabList;
-        }
+        setAppList(appList:Array<AppItem>){
+            this.appList = appList;
+        },
+        
     }
 
 })
 
-export { useTabListStore }
-export type {TabItem, ChildItem}
+export { useAppListStore }
+export type {AppItem}

@@ -2,7 +2,7 @@
 import { ref, onMounted, reactive } from "vue";
 import { invoke } from "@tauri-apps/api/tauri";
 import { Plus } from "@element-plus/icons-vue";
-import { useTabListStore, TabItem } from "@/stores/app"
+import { useAppListStore, AppItem } from "@/stores/app"
 import { Action, DropdownInstance, ElMessageBox, TabsPaneContext } from "element-plus"
 import { appWindow } from "@tauri-apps/api/window";
 import { path, window } from "@tauri-apps/api";
@@ -10,7 +10,7 @@ import { path, window } from "@tauri-apps/api";
 
 const launchAppMsg = ref("");
 const data = ref("")
-const tabListStore = useTabListStore()
+const appListStore = useAppListStore()
 const activeTab = ref('')
 const dropdownMenu = ref<DropdownInstance>()
 const dropdownItemList = ref(new Array<DropdownItem>())
@@ -40,9 +40,9 @@ async function loadAppList() {
     }
     console.log("加载应用列表")
     console.log(app_list_result.data)
-    let app_list = JSON.parse(app_list_result.data) as Array<TabItem>
+    let app_list = JSON.parse(app_list_result.data) as Array<AppItem>
     activeTab.value = app_list[0].name
-    tabListStore.setTabList(app_list)
+    appListStore.setAppList(app_list)
 }
 
 const app_icon_ref = ref("")
@@ -178,7 +178,7 @@ onMounted(async () => {
                         <p>{{ item.name }}</p>
                     </el-card> -->
                     <div
-                        v-for="(item, item_index) in tabListStore.tabList[0].childList" 
+                        v-for="(item, item_index) in appListStore.appList" 
                         :key="item_index"
                         class="square-card"
                         @click.right="showClickMenu($event,item.type)">
