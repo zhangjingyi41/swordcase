@@ -36,6 +36,7 @@ struct AppInfo {
     version: Option<String>,
     install_location: Option<String>,
     uninstall_string: Option<String>,
+    icon: String, // Base64编码的图标
 }
 
 // Learn more about Tauri commands at https://v1.tauri.app/v1/guides/features/command
@@ -197,10 +198,17 @@ fn get_apps_from_registry_key(key_path: &str) -> Result<Vec<AppInfo>, String> {
         
         if let Ok(location) = &display_icon {
             path = location.clone();
+            
+            if !path.ends_with(".exe") {
+                // 跳过这个应用
+                continue;
+            }
             // 移除图标索引（如果有）
             if let Some(idx) = path.find(",") {
                 path = path[..idx].to_string();
             }
+        }else{
+            continue;
         }
         
         // 获取其他可能有用的信息
@@ -208,6 +216,16 @@ fn get_apps_from_registry_key(key_path: &str) -> Result<Vec<AppInfo>, String> {
         let version: Option<String> = subkey.get_value("DisplayVersion").ok();
         let install_location: Option<String> = install_location.ok();
         let uninstall_string: Option<String> = subkey.get_value("UninstallString").ok();
+
+        // 获取应用图标
+        let icon = match extract_icon(&path) {
+            Ok(icon) => icon,
+            Err(e) => {
+                eprintln!("提取图标失败: {}", e);
+                // continue; // 如果提取图标失败，跳过这个应用
+                "".to_string()
+            }
+        };
         
         // 将应用程序信息加入列表
         apps.push(AppInfo {
@@ -217,6 +235,7 @@ fn get_apps_from_registry_key(key_path: &str) -> Result<Vec<AppInfo>, String> {
             version,
             install_location,
             uninstall_string,
+            icon,
         });
     }
     

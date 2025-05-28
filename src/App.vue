@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, reactive } from "vue";
 import { invoke } from "@tauri-apps/api/tauri";
-import { Plus } from "@element-plus/icons-vue";
+import { Plus,Picture as IconPicture } from "@element-plus/icons-vue";
 import { useAppListStore, AppItem } from "@/stores/app"
 import { Action, Column, DropdownInstance, ElMessageBox, TabsPaneContext, ElText } from "element-plus"
 import { appWindow } from "@tauri-apps/api/window";
@@ -47,7 +47,7 @@ async function loadAppList() {
 
 const app_icon_ref = ref("")
 async function getAppIcon() {
-    let icon_result:TauriResult = await invoke("get_app_icon", {path:"C:\\Users\\Administrator\\Desktop\\Whale.exe"})
+    let icon_result:TauriResult = await invoke("get_app_icon", {path:"C:\\Program Files (x86)\\NeatReader\\NeatReader.exe"})
     console.log(icon_result)
     
     if(icon_result.status){
@@ -65,18 +65,26 @@ async function getAppIcon() {
 const add_app_dialog_visible = ref(false)
 // cellRenderer: ({cellData:name})=><ElText>{name}</ElText>
 const table_column_list:Column<any>[] = [
+
     {
         key: "name",
         title: "应用名称",
         dataKey: "name",
-        align: "center",
-        width: 200,
+        align: "left",
+        width: 300,
+    },
+    {
+        key:"path",
+        title: "应用路径",
+        dataKey: "path",
+        align: "left",
+        width: 400,
     }
 ]
 const local_app_list = ref<Array<any>>([])
 async function addAppInit() {
     let app_list:TauriResult = await invoke("get_installed_apps")
-    console.log(app_list)
+    console.log(111,app_list)
     add_app_dialog_visible.value = true
     local_app_list.value = app_list.data as Array<any>
 }
@@ -163,8 +171,12 @@ onMounted(async () => {
 <template>
     <div class="box">
         <el-container class="box" @click.right="showClickMenu">
-            <el-header>
+            <!-- <el-header>
                 <img :src="app_icon_ref" alt="" >
+                
+            </el-header> -->
+            <!-- 走马灯、tab标签页都不行，继续按照翻页的思路走，逻辑是分页的逻辑，样式按照走马灯 -->
+            <el-main class="main">
                 <el-dropdown ref="dropdownMenu" trigger="contextmenu" placement="bottom-start" @command="handleClickMenu"
                             :style="{position: 'fixed', left: menuPosition.x + 'px', top: menuPosition.y + 'px'}">
                     <span></span>
@@ -181,9 +193,6 @@ onMounted(async () => {
                         </el-dropdown-menu>
                     </template>
                 </el-dropdown>
-            </el-header>
-            <!-- 走马灯、tab标签页都不行，继续按照翻页的思路走，逻辑是分页的逻辑，样式按照走马灯 -->
-            <el-main class="main">
                 <div class="card-container">
                     <!-- <el-card 
                         v-for="(item, item_index) in tabListStore.tabList[0].childList" 
@@ -204,12 +213,36 @@ onMounted(async () => {
         </el-container>
         
     </div>
-    <el-dialog v-model="add_app_dialog_visible" :show-close="false" width="600">
+    <el-dialog v-model="add_app_dialog_visible" :show-close="false" width="800" align-center>
         
-        <el-table-v2 :columns="table_column_list" :data="local_app_list" :width="568" :height="400"/>
-        <template #footer="{ close, titleId, titleClass }">
+        <!-- <el-table-v2 :columns="table_column_list" :data="local_app_list" :width="768" :height="650"/> -->
+        <el-table
+            ref="multipleTableRef"
+            :data="local_app_list"
+            row-key="name"
+            style="width: 100%;height: 450px;"
+            
+        >
+            <!-- <el-table-column type="selection" :selectable="selectable" width="55" /> -->
+             <el-table-column label="应用名称" prop="name">
+                <template #default="{ row }">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <el-image :src="row.icon" style="width: 20px; height: 20px; object-fit: cover;">
+                            <template #error>
+                                <div class="image-slot">
+                                    <el-icon><icon-picture /></el-icon>
+                                </div>
+                            </template>
+                        </el-image>
+                        <el-text>{{ row.name }}</el-text>
+                    </div>
+                </template>
+             </el-table-column>
+            <el-table-column property="path" label="路径" />
+        </el-table>
+        <template #footer>
             <div class="my-header">
-                <el-button type="danger" @click="close">
+                <el-button type="danger" @click="add_app_dialog_visible = false">
                     <el-icon class="el-icon--left"><CircleCloseFilled /></el-icon>
                     Close
                 </el-button>
