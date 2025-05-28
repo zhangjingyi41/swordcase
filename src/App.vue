@@ -3,7 +3,7 @@ import { ref, onMounted, reactive } from "vue";
 import { invoke } from "@tauri-apps/api/tauri";
 import { Plus } from "@element-plus/icons-vue";
 import { useAppListStore, AppItem } from "@/stores/app"
-import { Action, DropdownInstance, ElMessageBox, TabsPaneContext } from "element-plus"
+import { Action, Column, DropdownInstance, ElMessageBox, TabsPaneContext, ElText } from "element-plus"
 import { appWindow } from "@tauri-apps/api/window";
 import { path, window } from "@tauri-apps/api";
 
@@ -62,9 +62,23 @@ async function getAppIcon() {
         })
     }
 }
-
-function handleChangeTab(tab: TabsPaneContext, event: Event) {
-    console.log(tab)
+const add_app_dialog_visible = ref(false)
+// cellRenderer: ({cellData:name})=><ElText>{name}</ElText>
+const table_column_list:Column<any>[] = [
+    {
+        key: "name",
+        title: "应用名称",
+        dataKey: "name",
+        align: "center",
+        width: 200,
+    }
+]
+const local_app_list = ref<Array<any>>([])
+async function addAppInit() {
+    let app_list:TauriResult = await invoke("get_installed_apps")
+    console.log(app_list)
+    add_app_dialog_visible.value = true
+    local_app_list.value = app_list.data as Array<any>
 }
 type DropdownItem = {
     label: string
@@ -88,8 +102,8 @@ async function handleClickMenu(command: string | number | object) {
             break
         case "add_app":
             console.log("添加应用")
-            let app_list:TauriResult = await invoke("get_installed_apps")
-            console.log(app_list)
+            
+            await addAppInit()
             break
         case "new_folder":
             console.log("新建文件夹")
@@ -190,6 +204,18 @@ onMounted(async () => {
         </el-container>
         
     </div>
+    <el-dialog v-model="add_app_dialog_visible" :show-close="false" width="600">
+        
+        <el-table-v2 :columns="table_column_list" :data="local_app_list" :width="568" :height="400"/>
+        <template #footer="{ close, titleId, titleClass }">
+            <div class="my-header">
+                <el-button type="danger" @click="close">
+                    <el-icon class="el-icon--left"><CircleCloseFilled /></el-icon>
+                    Close
+                </el-button>
+            </div>
+        </template>
+    </el-dialog>
 </template>
 
 <style scoped>
