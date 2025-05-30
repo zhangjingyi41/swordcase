@@ -195,19 +195,46 @@ fn get_apps_from_registry_key(key_path: &str) -> Result<Vec<AppInfo>, String> {
         let mut path = String::new();
         let install_location: Result<String, _> = subkey.get_value("InstallLocation");
         let display_icon: Result<String, _> = subkey.get_value("DisplayIcon");
+        let uninstall_string: Option<String> = subkey.get_value("UninstallString").ok();
         
+        // 确定最佳路径
         if let Ok(location) = &display_icon {
             path = location.clone();
             
             if !path.ends_with(".exe") {
-                // 跳过这个应用
                 continue;
             }
+            
             // 移除图标索引（如果有）
             if let Some(idx) = path.find(",") {
                 path = path[..idx].to_string();
             }
-        }else{
+            
+            // 检查是否是卸载程序
+            let lower_path = path.to_lowercase();
+            if lower_path.contains("unins") || 
+               lower_path.contains("uninst") || 
+               lower_path.contains("uninstall") ||
+               lower_path.contains("setup.exe") ||
+               lower_path.contains("remove") {
+                // 尝试从安装目录查找更合适的可执行文件
+                if let Ok(install_dir) = &install_location {
+                    if !install_dir.is_empty() {
+                        // 这里可以添加查找主可执行文件的逻辑
+                        // 但简单起见，我们只是跳过这个条目
+                    }
+                }
+                continue;
+            }
+            
+            // 检查路径是否与卸载字符串匹配
+            if let Some(uninstall_str) = &uninstall_string {
+                let uninstall_lower = uninstall_str.to_lowercase();
+                if uninstall_lower.contains(&lower_path) {
+                    continue;
+                }
+            }
+        } else {
             continue;
         }
         
@@ -215,8 +242,7 @@ fn get_apps_from_registry_key(key_path: &str) -> Result<Vec<AppInfo>, String> {
         let publisher: Option<String> = subkey.get_value("Publisher").ok();
         let version: Option<String> = subkey.get_value("DisplayVersion").ok();
         let install_location: Option<String> = install_location.ok();
-        let uninstall_string: Option<String> = subkey.get_value("UninstallString").ok();
-
+        
         // 获取应用图标
         let icon = match extract_icon(&path) {
             Ok(icon) => icon,
