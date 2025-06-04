@@ -1,4 +1,5 @@
 import {defineStore} from "pinia"
+import md5 from 'md5'
 
 // type TabItem = {
 //     name: string,
@@ -7,6 +8,7 @@ import {defineStore} from "pinia"
 // }
 
 type AppItem = {
+    id: string,
     name: string,
     sq: number,
     type: string, // 1:文件夹 2:文件
@@ -35,7 +37,18 @@ const useAppListStore = defineStore("appList", {
         setAppList(appList:Array<AppItem>){
             this.appList = appList;
         },
-        
+        addApp(appItem:AppItem){
+            if(appItem.type=='app'){
+                appItem.id = md5(`${appItem.name}-${appItem.link}`)
+            }
+            this.appList.push(appItem);
+        },
+        removeApp(appItem:AppItem){
+            const index = this.appList.findIndex(item => item.name === appItem.name);
+            if (index !== -1) {
+                this.appList.splice(index, 1);
+            }
+        },
     }
 
 })

@@ -3,7 +3,7 @@ import { ref, onMounted, reactive } from "vue";
 import { invoke } from "@tauri-apps/api/tauri";
 import { Plus,Picture as IconPicture } from "@element-plus/icons-vue";
 import { useAppListStore, AppItem } from "@/stores/app"
-import { Action, Column, DropdownInstance, ElMessageBox, TabsPaneContext, ElText } from "element-plus"
+import { Action, Column, DropdownInstance, ElMessageBox, TabsPaneContext, ElText, TableInstance } from "element-plus"
 import { appWindow } from "@tauri-apps/api/window";
 import { path, window } from "@tauri-apps/api";
 
@@ -63,30 +63,38 @@ async function getAppIcon() {
     }
 }
 const add_app_dialog_visible = ref(false)
-// cellRenderer: ({cellData:name})=><ElText>{name}</ElText>
-const table_column_list:Column<any>[] = [
 
-    {
-        key: "name",
-        title: "应用名称",
-        dataKey: "name",
-        align: "left",
-        width: 300,
-    },
-    {
-        key:"path",
-        title: "应用路径",
-        dataKey: "path",
-        align: "left",
-        width: 400,
-    }
-]
+// 本地已安装应用列表——多选表格
 const local_app_list = ref<Array<any>>([])
+const selected_local_app_list = ref<Array<any>>([])
+const selected_local_app_ref = ref<TableInstance>()
 async function addAppInit() {
     let app_list:TauriResult = await invoke("get_installed_apps")
     console.log(111,app_list)
     add_app_dialog_visible.value = true
     local_app_list.value = app_list.data as Array<any>
+}
+/**
+ * 处理表格选中行变化事件
+ * @param val 选中的应用列表
+ */
+function handleTableSelectionChange(val:any[]){
+    selected_local_app_list.value = val
+}
+/**
+ * 处理添加本地应用确认事件
+ */
+function handleConfirmAddLocalApp(){
+    // 将被选中的app添加到应用列表中
+    if(selected_local_app_list.value.length > 0){
+        console.log(selected_local_app_list.value)
+        selected_local_app_list.value.forEach((item:any) => {
+            let app_item:AppItem = {
+                name: item.name,
+            }
+        })
+    }
+    add_app_dialog_visible.value = false
 }
 type DropdownItem = {
     label: string
@@ -163,7 +171,7 @@ function showClickMenu(event: MouseEvent, item_type: string = "default") {
 }
 onMounted(async () => {
     await loadAppList()
-    await getAppIcon()
+    // await getAppIcon()
 });
 
 </script>
@@ -217,13 +225,13 @@ onMounted(async () => {
         
         <!-- <el-table-v2 :columns="table_column_list" :data="local_app_list" :width="768" :height="650"/> -->
         <el-table
-            ref="multipleTableRef"
+            ref="selected_local_app_ref"
             :data="local_app_list"
             row-key="name"
             style="width: 100%;height: 450px;"
-            
+            @selection-change="handleTableSelectionChange"
         >
-            <!-- <el-table-column type="selection" :selectable="selectable" width="55" /> -->
+            <el-table-column type="selection" width="55" />
              <el-table-column label="应用名称" prop="name">
                 <template #default="{ row }">
                     <div style="display: flex; align-items: center; gap: 8px;">
@@ -242,9 +250,9 @@ onMounted(async () => {
         </el-table>
         <template #footer>
             <div class="my-header">
-                <el-button type="danger" @click="add_app_dialog_visible = false">
-                    <el-icon class="el-icon--left"><CircleCloseFilled /></el-icon>
-                    Close
+                <el-button type="primary" @click="handleConfirmAddLocalApp">
+                    <el-icon class="el-icon--left"><CircleCheck /></el-icon>
+                    确定
                 </el-button>
             </div>
         </template>
